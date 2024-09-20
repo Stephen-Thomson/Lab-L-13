@@ -1,10 +1,58 @@
-import { Container, Typography, Box } from '@mui/material'
+import React, { useState } from 'react';
+import { Container, Typography, Box, TextField, Button } from '@mui/material';
+import { publishCommitment } from '../utils/publishCommitment';
+import { PrivateKey, PublicKey } from '@bsv/sdk';
+import crypto from 'crypto';
+import bs58 from 'bs58'; // Base58 encoding library
+
+// Function to manually derive a Bitcoin address from the public key
+function deriveAddressFromPublicKey(publicKey: PublicKey): string {
+  const publicKeyHex = publicKey.toString(); // Get public key as a hex string
+  const publicKeyBuffer = Buffer.from(publicKeyHex, 'hex'); // Convert the hex string to a buffer
+
+  // Hash public key with SHA-256, then RIPEMD-160 using Node.js's crypto module
+  const sha256Hash = crypto.createHash('sha256').update(publicKeyBuffer).digest();
+  const ripemd160Hash = crypto.createHash('ripemd160').update(sha256Hash).digest();
+
+  // Base58Check encode the RIPEMD-160 hash to get the address
+  const address = bs58.encode(ripemd160Hash);
+  return address;
+}
 
 const CommitmentForm = () => {
-  // TODO: Add necessary state variables
-  const hostingURL = 'https://staging-overlay.babbage.systems'
+  // State variables to store form input values
+  const [fileURL, setFileURL] = useState('');
+  const [hostingTime, setHostingTime] = useState('');
 
-  // TODO: Implement form submit handler to publish the file hosting commitment
+  // Ninja Wallet Private Key
+  const privateKeyHex = 'bf4d159ac007184e0d458b7d6e3deb0e645269f55f13ba10f24e654ffc194daa';
+
+  // Create PrivateKey object and derive the public key
+  const privateKey = PrivateKey.fromString(privateKeyHex, 'hex'); // Convert private key from hex
+  const publicKey = PublicKey.fromPrivateKey(privateKey); // Derive public key from private key
+  const address = deriveAddressFromPublicKey(publicKey); // Derive Bitcoin address from public key
+
+  // Form submit handler to publish the file hosting commitment
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    // Convert hosting time to minutes
+    const hostingMinutes = parseInt(hostingTime) * 24 * 60;
+
+    try {
+      // Call the publishCommitment utility function to submit the commitment
+      await publishCommitment({
+        url: fileURL,
+        hostingMinutes,
+        address, // Use derived address
+        serviceURL: 'https://staging-overlay.babbage.systems',
+      });
+      alert('File storage commitment submitted successfully!');
+    } catch (error) {
+      console.error('Error submitting file storage commitment:', error);
+      alert('There was an error submitting the commitment.');
+    }
+  };
 
   return (
     <Container maxWidth="sm">
@@ -12,10 +60,38 @@ const CommitmentForm = () => {
         <Typography variant="h4" gutterBottom>
           Create File Storage Commitment
         </Typography>
-        {/* TODO: Add form for entering file hosting commitment details */}
+        <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="File URL"
+            value={fileURL}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileURL(e.target.value)}
+            margin="normal"
+            required
+          />
+          <TextField
+            fullWidth
+            label="Hosting Time (in days)"
+            type="number"
+            value={hostingTime}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHostingTime(e.target.value)}
+            margin="normal"
+            required
+          />
+          <Box mt={3}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              fullWidth
+            >
+              Submit Commitment
+            </Button>
+          </Box>
+        </form>
       </Box>
     </Container>
-  )
-}
+  );
+};
 
-export default CommitmentForm
+export default CommitmentForm;
