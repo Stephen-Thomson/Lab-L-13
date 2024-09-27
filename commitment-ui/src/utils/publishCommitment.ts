@@ -26,7 +26,7 @@ export async function publishCommitment({
   url,
   hostingMinutes,
   address,
-  serviceURL = 'https://staging-overlay.babbage.systems/submit',
+  serviceURL = 'https://staging-overlay.babbage.systems',
 }: {
   url: string;
   hostingMinutes: number;
@@ -65,6 +65,7 @@ export async function publishCommitment({
     console.log('Step 7: Creating output script using pushdrop');
     const outputScript = await pushdrop.create({
       fields: [
+        '1UHRPYnMHPuQ5Tgb3AF8JXqwKkmZVy5hG', // Add UHRP protocol address as the first field
         address,
         hash,
         'advertise',
@@ -122,15 +123,15 @@ export async function publishCommitment({
     console.log('BEEF data being submitted:', beef);  // Log the BEEF data being submitted
     console.log('Request Headers:', {
       'Content-Type': 'application/octet-stream',
-      'X-Topics': 'tm_uhrp',
+      'X-Topics': JSON.stringify(['tm_uhrp']), // Fix X-Topics to a JSON stringified array
     });
-    console.log('Submitting to serviceURL:', serviceURL);
+    console.log('Submitting to serviceURL:', `${serviceURL}/submit`);
 
-    const responseData = await fetch(serviceURL, {
+    const responseData = await fetch(`${serviceURL}/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/octet-stream',
-        'X-Topics': 'tm_uhrp',
+        'X-Topics': JSON.stringify(['tm_uhrp']),
       },
       body: Buffer.isBuffer(beef) ? beef : Buffer.from(beef), // Convert Uint8Array to Buffer for submission
     });
@@ -158,8 +159,8 @@ export async function publishCommitment({
 
     return result.uhrpURL;
 
-    } catch (error) {
-      console.error('Error creating commitment:', error);
-      throw error;
-    }
+  } catch (error) {
+    console.error('Error creating commitment:', error);
+    throw error;
+  }
 }
