@@ -1,7 +1,6 @@
-import { createAction } from '@babbage/sdk-ts';
+import { createAction, toBEEFfromEnvelope, EnvelopeEvidenceApi } from '@babbage/sdk-ts';
 import { getURLForFile, getHashFromURL } from 'uhrp-url';
 import pushdrop from 'pushdrop';
-import fetch from 'node-fetch';
 import { Buffer } from 'buffer';
 import { v4 as uuidv4 } from 'uuid'; // Import uuidv4 to generate unique key IDs
 
@@ -27,84 +26,140 @@ export async function publishCommitment({
   url,
   hostingMinutes,
   address,
-  serviceURL = 'https://staging-overlay.babbage.systems',
+  serviceURL = 'https://staging-overlay.babbage.systems/submit',
 }: {
   url: string;
   hostingMinutes: number;
   address: string;
   serviceURL?: string;
 }): Promise<string> {
+  console.log('publishCommitment function is being called');
   try {
-    // Step 1: Fetch the file from the provided URL
+    console.log('Step 1: Fetching file from URL:', url);
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch the file');
     const fileBlob = await response.blob();
+    console.log('File fetched successfully, size:', fileBlob.size);
 
-    // Step 2: Convert the Blob to a Buffer
+    console.log('Step 2: Converting Blob to Buffer');
     const arrayBuffer = await fileBlob.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
+    console.log('Buffer created, size:', fileBuffer.length);
 
-    // Step 3: Generate a UHRP URL from the file's buffer
+    console.log('Step 3: Generating UHRP URL');
     const uhrpURL = getURLForFile(fileBuffer);
+    console.log('UHRP URL generated:', uhrpURL);
 
-    // Step 4: Generate a hash from the UHRP URL
+    console.log('Step 4: Generating hash from UHRP URL');
     const hash = getHashFromURL(uhrpURL);
+    console.log('Hash generated:', hash);
 
-    // Step 5: Calculate the expiry time for the UHRP advertisement
-    const expiryTime = Math.floor(Date.now() / 1000) + hostingMinutes * 60; // Convert hostingMinutes to seconds
+    console.log('Step 5: Calculating expiry time');
+    const expiryTime = Math.floor(Date.now() / 1000) + hostingMinutes * 60;
+    console.log('Expiry time calculated:', expiryTime);
 
-    // Step 6: Generate unique key ID for the commitment
+    console.log('Step 6: Generating unique key ID for the commitment');
     const keyID = generateUniqueKeyID();
+    console.log('Key ID generated:', keyID);
 
-    // Step 7: Use pushdrop.create() to create the output script
+    console.log('Step 7: Creating output script using pushdrop');
     const outputScript = await pushdrop.create({
       fields: [
-        address, // Host address
-        hash, // File hash
-        'advertise', // Action 'advertise'
-        url, // File URL
-        expiryTime.toString(), // Expiry time
-        fileBuffer.length.toString(), // File size in bytes
+        address,
+        hash,
+        'advertise',
+        url,
+        expiryTime.toString(),
+        fileBuffer.length.toString(),
       ],
-      protocolID: 'file_storage_commitments', // Set the protocol ID for the UHRP token
-      keyID, // Use the generated unique key ID
+      protocolID: 'UHRP File Commitment',
+      keyID,
     });
+    console.log('Output script created:', outputScript.toString('hex'));
 
-    // Step 8: Use createAction to build the blockchain transaction
+    console.log('Step 8: Building blockchain transaction using createAction');
     const action = await createAction({
       outputs: [
         {
-          satoshis: 1000, // Set appropriate satoshis amount
-          script: outputScript, // Use the generated output script from pushdrop.create()
-          basket: 'file_storage_commitments', // Name of the basket
-          customInstructions: JSON.stringify({
-            url,
-            hostingMinutes,
-            address,
-          }), // Custom instructions for file storage commitment
+          satoshis: 1000,
+          script: outputScript,
+          basket: 'tm_uhrp',
+          customInstructions: JSON.stringify({ url, hostingMinutes, address }),
         },
       ],
       description: 'Submitting a new file storage commitment',
     });
+    console.log('Action created:', action);
 
-    // Step 9: Submit the UHRP advertisement token data to the overlay
+    // Check if action includes rawTx, inputs, and txid
+    if (!action.rawTx || !action.txid) {
+      throw new Error('Missing values in action: rawTx or txid');
+    }
+
+    // Ensure inputs are correctly typed or default to an empty object
+    const inputs: Record<string, EnvelopeEvidenceApi> = action.inputs
+      ? (action.inputs as Record<string, EnvelopeEvidenceApi>)
+      : {};
+
+    console.log('Action rawTx:', action.rawTx);
+    console.log('Action inputs:', inputs);
+    console.log('Action txid:', action.txid);
+
+    // Convert the action to BEEF format before submitting
+    console.log('Step 9: Converting action to BEEF format');
+    const beef = toBEEFfromEnvelope({
+      rawTx: action.rawTx,
+      inputs: inputs, // Ensure inputs are of the expected type
+      txid: action.txid,
+    }).beef;
+
+    console.log('BEEF format generated:', beef);
+    console.log('BEEF data to submit:', beef);
+    console.log('Submitting to serviceURL:', serviceURL);
+
+    // Submitting UHRP advertisement token data to the overlay in BEEF format
+    console.log('Step 10: Submitting BEEF data to overlay');
+    console.log('BEEF data being submitted:', beef);  // Log the BEEF data being submitted
+    console.log('Request Headers:', {
+      'Content-Type': 'application/octet-stream',
+      'X-Topics': 'tm_uhrp',
+    });
+    console.log('Submitting to serviceURL:', serviceURL);
+
     const responseData = await fetch(serviceURL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Topics': 'tm_uhrp', // Topic header for UHRP
+        'Content-Type': 'application/octet-stream',
+        'X-Topics': 'tm_uhrp',
       },
-      body: JSON.stringify(action),
+      body: Buffer.isBuffer(beef) ? beef : Buffer.from(beef), // Convert Uint8Array to Buffer for submission
     });
 
-    if (!responseData.ok) throw new Error('Failed to submit UHRP advertisement');
+    console.log('Response status:', responseData.status);
+    console.log('Response headers:', responseData.headers);
 
-    // Use type assertion to specify the expected type of the JSON response
-    const result = await responseData.json() as UHRPResponse; // Assert the type
-    return result.uhrpURL; // Return the UHRP file URL from the response
+    const responseBody = await responseData.text();
+    console.log('Response body:', responseBody);
 
-  } catch (error) {
-    console.error('Error creating commitment:', error);
-    throw error;
-  }
+    if (!responseData.ok) {
+      console.log('Error details: Response not OK, status:', responseData.status);
+      throw new Error('Failed to submit UHRP advertisement');
+    }
+
+    let result: UHRPResponse;
+    try {
+      result = JSON.parse(responseBody) as UHRPResponse;
+    } catch (error) {
+      console.error('Failed to parse response as JSON:', error);
+      throw new Error('Unexpected response format');
+    }
+
+    console.log('Response received from overlay:', result);
+
+    return result.uhrpURL;
+
+    } catch (error) {
+      console.error('Error creating commitment:', error);
+      throw error;
+    }
 }

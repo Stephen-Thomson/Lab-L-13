@@ -7,17 +7,13 @@ export class TopicManager {
   // Decodes and validates the storage commitment token
   public static evaluateCommitment(outputScript: Buffer, pubKey: PublicKey): boolean {
     try {
+      console.log('Starting commitment evaluation...');
+
       // Step 1: Decode the output script
       const fields = this.decodeOutputScript(outputScript);
       console.log('Decoded Fields:', fields);
 
-      console.log('Field 0 (UHRP Protocol Address):', fields[0].toString('utf8'));
-      console.log('Field 1 (Public Key):', fields[1].toString('utf8'));
-      console.log('Field 2 (Hash Buffer):', fields[2]);
-      console.log('Field 4 (URL):', fields[4].toString('utf8'));
-      console.log('Field 5 (Expiry Time):', fields[5].toString('utf8'));
-      console.log('Field 6 (File Size):', fields[6].toString('utf8'));
-      console.log('Field 7 (Signature Buffer):', fields[7]);
+      console.log('Validate the fields');
 
       // Step 2: Validate the fields
       if (fields[0].toString('utf8') !== UHRP_PROTOCOL_ADDRESS) {
@@ -58,7 +54,7 @@ export class TopicManager {
       const signatureBuffer = fields[7];
       console.log('Signature Buffer:', signatureBuffer);
 
-      const message = Buffer.concat(fields.slice(0, 7)); // The message to verify is all fields except the signature
+      const message = Buffer.concat(fields.slice(0, 7));
       console.log('Message to Verify (Concatenated Fields):', message);
 
       // Hash the message using Hash.sha256
@@ -78,7 +74,6 @@ export class TopicManager {
         throw new Error('Invalid signature.');
       }
 
-      // If all validations pass, the commitment is valid
       console.log('Commitment is valid');
       return true;
 
@@ -92,8 +87,7 @@ export class TopicManager {
       }
       return false;
     }
-}
-
+  }
 
   // Decodes the PushDrop output script into individual fields
   private static decodeOutputScript(outputScript: Buffer): Buffer[] {
@@ -107,10 +101,19 @@ export class TopicManager {
       i += 1 + length; // Move to the next field
     }
 
+    // Log the field lengths and raw data to debug potential misinterpretations
+    fields.forEach((field, index) => {
+      const fieldAsString = field.toString('utf8'); // For text-based fields
+      const fieldAsHex = field.toString('hex');     // For fields that should be hex
+      console.log(`Field ${index} length:`, field.length, 'Raw Data (UTF-8):', fieldAsString, 'Raw Data (Hex):', fieldAsHex);
+    });
+
     return fields;
   }
 
   private static isValidSHA256(hash: string): boolean {
-    return /^[a-f0-9]{64}$/.test(hash);
+    const isValid = /^[a-f0-9]{64}$/.test(hash);
+    console.log('Is valid SHA256 hash:', isValid, 'Hash:', hash); // Log SHA256 validation result
+    return isValid;
   }
 }

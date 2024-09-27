@@ -18,6 +18,7 @@
     "bsv": "^2.0.10",
     "crypto": "^1.0.1",
     "elliptic": "^6.5.7",
+    "jest-fetch-mock": "^3.0.3",
     "node-fetch": "^3.3.2",
     "pushdrop": "^0.1.61",
     "react": "^18.3.1",
@@ -58,6 +59,8 @@
     "@babel/preset-env": "^7.18.2",
     "@babel/preset-react": "^7.17.12",
     "@babel/preset-typescript": "^7.24.7",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
     "@types/elliptic": "^6.4.18",
     "@types/node": "^20.14.11",
     "@types/react": "^18.3.3",
@@ -84,6 +87,7 @@
     "standard": "^17.1.0",
     "style-loader": "^3.3.4",
     "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
     "ts-loader": "^9.5.1",
     "typescript": "^5.5.4",
     "url-loader": "^4.1.1",
@@ -93,12 +97,15 @@
     "webpack-merge": "^5.10.0"
   },
   "jest": {
+    "preset": "ts-jest",
     "transform": {
-    "^.+\\.(ts|tsx)$": "babel-jest"
-  },
+      "^.+\\.(ts|tsx)$": "ts-jest"
+    },
     "testMatch": [
       "**/*.test.ts",
       "**/*Test.ts"
-    ]
+    ],
+    "silent": false,
+    "verbose": true
   }
 }

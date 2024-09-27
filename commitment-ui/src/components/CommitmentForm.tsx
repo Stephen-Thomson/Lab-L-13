@@ -19,7 +19,7 @@ function deriveAddressFromPublicKey(publicKey: PublicKey): string {
   return address;
 }
 
-const CommitmentForm = () => {
+const CommitmentForm: React.FC = () => {
   // State variables to store form input values
   const [fileURL, setFileURL] = useState('');
   const [hostingTime, setHostingTime] = useState('');
@@ -32,24 +32,51 @@ const CommitmentForm = () => {
   const publicKey = PublicKey.fromPrivateKey(privateKey); // Derive public key from private key
   const address = deriveAddressFromPublicKey(publicKey); // Derive Bitcoin address from public key
 
+  // Added console logs to track key and address generation
+  console.log('Private Key:', privateKeyHex);
+  console.log('Derived Public Key:', publicKey.toString());
+  console.log('Derived Address:', address);
+
   // Form submit handler to publish the file hosting commitment
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Convert hosting time to minutes
-    const hostingMinutes = parseInt(hostingTime) * 24 * 60;
+    // Validate inputs
+    if (!fileURL || !hostingTime) {
+      alert('Please provide valid inputs for the file URL and hosting time.');
+      return;
+    }
 
     try {
+      // Convert hosting time to minutes
+      const hostingMinutes = parseInt(hostingTime) * 24 * 60;
+
+      console.log('File URL:', fileURL);
+      console.log('Hosting Time (in days):', hostingTime);
+      console.log('Hosting Time (in minutes):', hostingMinutes);
+      console.log('Address:', address);
+
       // Call the publishCommitment utility function to submit the commitment
-      await publishCommitment({
+      console.log('Calling publishCommitment with data:');
+      console.log({ fileURL, hostingMinutes, address });
+
+      const result = await publishCommitment({
         url: fileURL,
         hostingMinutes,
         address, // Use derived address
         serviceURL: 'https://staging-overlay.babbage.systems',
       });
+
+      console.log('publishCommitment result:', result);
+
       alert('File storage commitment submitted successfully!');
     } catch (error) {
-      console.error('Error submitting file storage commitment:', error);
+      // Enhanced error logging
+      if (error instanceof Error) {
+        console.error('Error submitting file storage commitment:', error.message);
+      } else {
+        console.error('Unknown error:', error);
+      }
       alert('There was an error submitting the commitment.');
     }
   };
