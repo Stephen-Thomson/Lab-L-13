@@ -55,8 +55,15 @@ export async function publishCommitment({
     console.log('Hash generated:', hash);
 
     console.log('Step 5: Calculating expiry time');
-    const expiryTime = Math.floor(Date.now() / 1000) + hostingMinutes * 60;
+    const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
+    const expiryTime = currentTime + hostingMinutes * 60;
     console.log('Expiry time calculated:', expiryTime);
+
+    // Validate if the expiry time is in the past or invalid
+    if (expiryTime <= currentTime) {
+      console.log('Invalid or expired timestamp:', expiryTime);
+      throw new Error('Invalid or expired timestamp.');
+    }
 
     console.log('Step 6: Generating unique key ID for the commitment');
     const keyID = generateUniqueKeyID();
@@ -97,7 +104,6 @@ export async function publishCommitment({
       throw new Error('Missing values in action: rawTx or txid');
     }
 
-    // Ensure inputs are correctly typed or default to an empty object
     const inputs: Record<string, EnvelopeEvidenceApi> = action.inputs
       ? (action.inputs as Record<string, EnvelopeEvidenceApi>)
       : {};
@@ -110,7 +116,7 @@ export async function publishCommitment({
     console.log('Step 9: Converting action to BEEF format');
     const beef = toBEEFfromEnvelope({
       rawTx: action.rawTx,
-      inputs: inputs, // Ensure inputs are of the expected type
+      inputs: inputs,
       txid: action.txid,
     }).beef;
 
@@ -120,10 +126,10 @@ export async function publishCommitment({
 
     // Submitting UHRP advertisement token data to the overlay in BEEF format
     console.log('Step 10: Submitting BEEF data to overlay');
-    console.log('BEEF data being submitted:', beef);  // Log the BEEF data being submitted
+    console.log('BEEF data being submitted:', beef);
     console.log('Request Headers:', {
       'Content-Type': 'application/octet-stream',
-      'X-Topics': JSON.stringify(['tm_uhrp']), // Fix X-Topics to a JSON stringified array
+      'X-Topics': JSON.stringify(['tm_uhrp']),
     });
     console.log('Submitting to serviceURL:', `${serviceURL}/submit`);
 
@@ -133,7 +139,7 @@ export async function publishCommitment({
         'Content-Type': 'application/octet-stream',
         'X-Topics': JSON.stringify(['tm_uhrp']),
       },
-      body: Buffer.isBuffer(beef) ? beef : Buffer.from(beef), // Convert Uint8Array to Buffer for submission
+      body: Buffer.isBuffer(beef) ? beef : Buffer.from(beef), 
     });
 
     console.log('Response status:', responseData.status);
@@ -164,3 +170,4 @@ export async function publishCommitment({
     throw error;
   }
 }
+

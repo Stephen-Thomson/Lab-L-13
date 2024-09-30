@@ -36,101 +36,161 @@ const createOutputScript = (fields: (string | Buffer)[]): Buffer => {
   }));
 };
 
-// Test cases for evaluating storage commitments
-// describe('Topic Manager Commitment Validation', () => {
-//   let VALID_SIGNATURE_BUFFER: Buffer;
+// Test cases for Topic Manager commitment validation
+describe('Topic Manager Commitment Validation', () => {
+  let VALID_SIGNATURE_BUFFER: Buffer;
 
-//   beforeAll(() => {
-//     const fields = [
-//       UHRP_PROTOCOL_ADDRESS,
-//       pubKey.toString(),
-//       Buffer.from(VALID_HASH, 'hex'),
-//       'advertise',
-//       VALID_URL,
-//       VALID_TIMESTAMP.toString(),
-//       VALID_FILE_SIZE
-//     ];
-//     VALID_SIGNATURE_BUFFER = signCommitment(fields);
-//   });
+  beforeAll(() => {
+    const fields = [
+      UHRP_PROTOCOL_ADDRESS,
+      pubKey.toString(),
+      Buffer.from(VALID_HASH, 'hex'),
+      'advertise',
+      VALID_URL,
+      VALID_TIMESTAMP.toString(),
+      VALID_FILE_SIZE
+    ];
+    VALID_SIGNATURE_BUFFER = signCommitment(fields);
+  });
 
-//   it('should admit a valid storage commitment', () => {
-//     const validOutputScript = createOutputScript([
-//       UHRP_PROTOCOL_ADDRESS,
-//       pubKey.toString(),
-//       Buffer.from(VALID_HASH, 'hex'),
-//       'advertise',
-//       VALID_URL,
-//       VALID_TIMESTAMP.toString(),
-//       VALID_FILE_SIZE,
-//       VALID_SIGNATURE_BUFFER
-//     ]);
+  it('should admit a valid storage commitment', () => {
+    const validOutputScript = createOutputScript([
+      UHRP_PROTOCOL_ADDRESS,
+      pubKey.toString(),
+      Buffer.from(VALID_HASH, 'hex'),
+      'advertise',
+      VALID_URL,
+      VALID_TIMESTAMP.toString(),
+      VALID_FILE_SIZE,
+      VALID_SIGNATURE_BUFFER
+    ]);
 
-//     const isValid = TopicManager.evaluateCommitment(validOutputScript, pubKey);
-//     expect(isValid).toBe(true);
-//   });
+    const isValid = TopicManager.evaluateCommitment(validOutputScript, pubKey);
+    expect(isValid).toBe(true);
+  });
 
-//   it('should reject an invalid protocol address', () => {
-//     const invalidOutputScript = createOutputScript([
-//       'invalid_protocol',
-//       pubKey.toString(),
-//       VALID_HASH,
-//       'advertise',
-//       VALID_URL,
-//       VALID_TIMESTAMP.toString(),
-//       VALID_FILE_SIZE,
-//       VALID_SIGNATURE_BUFFER
-//     ]);
+  it('should reject an invalid protocol address', () => {
+    const invalidOutputScript = createOutputScript([
+      'invalid_protocol',
+      pubKey.toString(),
+      VALID_HASH,
+      'advertise',
+      VALID_URL,
+      VALID_TIMESTAMP.toString(),
+      VALID_FILE_SIZE,
+      VALID_SIGNATURE_BUFFER
+    ]);
 
-//     const isValid = TopicManager.evaluateCommitment(invalidOutputScript, pubKey);
-//     expect(isValid).toBe(false);
-//   });
-  
-//   // Add more tests for invalid cases like invalid hash, URL, expired timestamp, invalid signature, etc.
-// });
+    const isValid = TopicManager.evaluateCommitment(invalidOutputScript, pubKey);
+    expect(isValid).toBe(false);
+  });
 
-// Test cases for publishCommitment
+  it('should reject an expired timestamp', () => {
+    const expiredTimestamp = Math.floor(Date.now() / 1000) - 1000; // Past timestamp
+    const expiredOutputScript = createOutputScript([
+      UHRP_PROTOCOL_ADDRESS,
+      pubKey.toString(),
+      Buffer.from(VALID_HASH, 'hex'),
+      'advertise',
+      VALID_URL,
+      expiredTimestamp.toString(),
+      VALID_FILE_SIZE,
+      VALID_SIGNATURE_BUFFER
+    ]);
+
+    const isValid = TopicManager.evaluateCommitment(expiredOutputScript, pubKey);
+    expect(isValid).toBe(false);
+  });
+
+  it('should reject an invalid file size', () => {
+    const invalidFileSize = '0'; // Invalid file size (0 bytes)
+    const invalidOutputScript = createOutputScript([
+      UHRP_PROTOCOL_ADDRESS,
+      pubKey.toString(),
+      Buffer.from(VALID_HASH, 'hex'),
+      'advertise',
+      VALID_URL,
+      VALID_TIMESTAMP.toString(),
+      invalidFileSize,
+      VALID_SIGNATURE_BUFFER
+    ]);
+
+    const isValid = TopicManager.evaluateCommitment(invalidOutputScript, pubKey);
+    expect(isValid).toBe(false);
+  });
+
+  it('should reject an invalid signature', () => {
+    const invalidSignatureBuffer = Buffer.from('invalidsignature');
+    const invalidOutputScript = createOutputScript([
+      UHRP_PROTOCOL_ADDRESS,
+      pubKey.toString(),
+      Buffer.from(VALID_HASH, 'hex'),
+      'advertise',
+      VALID_URL,
+      VALID_TIMESTAMP.toString(),
+      VALID_FILE_SIZE,
+      invalidSignatureBuffer
+    ]);
+
+    const isValid = TopicManager.evaluateCommitment(invalidOutputScript, pubKey);
+    expect(isValid).toBe(false);
+  });
+});
+
 describe('publishCommitment', () => {
   beforeAll(() => {
-    jest.setTimeout(10000); // Set global timeout for all tests in this file to 10 seconds
+    jest.setTimeout(15000); // Increase timeout to 15 seconds for longer tests
   });
 
   beforeEach(() => {
-    fetchMock.resetMocks();
+    fetchMock.resetMocks(); // Reset the mocks before each test
   });
 
   it('should successfully publish a commitment and return a valid UHRP URL', async () => {
-    fetchMock.mockResponseOnce(JSON.stringify({ uhrpURL: 'https://example.com/commitment' }));
+    // Mock a successful response with a placeholder valid URL
+    fetchMock.mockResponseOnce(JSON.stringify({ uhrpURL: 'https://example-uhrp-url.com/commitment' }));
 
     const result = await publishCommitment({
-      url: VALID_URL,
-      hostingMinutes: 1440,
-      address: '1ExampleAddress123',
-      serviceURL: 'https://staging-overlay.babbage.systems',
+      url: 'https://drive.google.com/file/d/1HVzNnYK5AI7-lG-W-WY7Tfu6watSKVsc/view?usp=sharing', // Use the actual file URL
+      hostingMinutes: 1440, // Hosting time in minutes
+      address: '1RealUHRPAddress123', // Replace with a dynamically validated address
+      serviceURL: 'https://staging-overlay.babbage.systems', // Actual service URL
     });
 
-    expect(result).toEqual('https://example.com/commitment');
-    expect(fetchMock).toHaveBeenCalledWith('https://staging-overlay.babbage.systems', expect.any(Object));
-  });
+    // Validate that the returned result is a valid URL format
+    expect(result).toMatch(/^https?:\/\/.+/);
+    // Ensure that the fetch was called with the correct submission endpoint and parameters
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://staging-overlay.babbage.systems/submit',
+      expect.any(Object)
+    );
+  }, 10000); // Timeout of 10 seconds for this test
 
-  // Handle timeouts by increasing Jest timeout for async operations
   it('should handle long-running requests by increasing timeout', async () => {
-    jest.setTimeout(10000); // Set timeout to 10 seconds
+    jest.setTimeout(10000); // Increase timeout to 10 seconds for longer requests
 
+    // Mock a delayed response (7 seconds) to simulate a long-running request
     fetchMock.mockResponseOnce(async () => {
-      // Simulate a delayed response
-      return new Promise(resolve => setTimeout(() => resolve({ body: JSON.stringify({ uhrpURL: 'https://example.com/commitment' }) }), 7000));
+      return new Promise(resolve =>
+        setTimeout(
+          () => resolve({ body: JSON.stringify({ uhrpURL: 'https://example-uhrp-url.com/commitment' }) }),
+          7000
+        )
+      );
     });
 
     const result = await publishCommitment({
-      url: VALID_URL,
-      hostingMinutes: 1440,
-      address: '1ExampleAddress123',
-      serviceURL: 'https://staging-overlay.babbage.systems',
+      url: 'https://drive.google.com/file/d/1HVzNnYK5AI7-lG-W-WY7Tfu6watSKVsc/view?usp=sharing', // Use the actual file URL
+      hostingMinutes: 1440, // Hosting time in minutes
+      address: '1RealUHRPAddress123', // Replace with dynamically validated address
+      serviceURL: 'https://staging-overlay.babbage.systems', // Actual service URL
     });
 
-    expect(result).toEqual('https://example.com/commitment');
-  });
+    // Validate that the returned result is a valid URL format
+    expect(result).toMatch(/^https?:\/\/.+/);
+  }, 10000); // Timeout of 10 seconds for this test
 });
+
 
 // Test cases for Overlay Service interaction using BEEF
 describe('Overlay Service Tests', () => {

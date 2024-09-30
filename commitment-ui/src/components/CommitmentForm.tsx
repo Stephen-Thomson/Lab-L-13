@@ -19,6 +19,16 @@ function deriveAddressFromPublicKey(publicKey: PublicKey): string {
   return address;
 }
 
+// Utility function to validate URL format
+const isValidURL = (url: string): boolean => {
+  try {
+    new URL(url);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
 const CommitmentForm: React.FC = () => {
   // State variables to store form input values
   const [fileURL, setFileURL] = useState('');
@@ -40,35 +50,48 @@ const CommitmentForm: React.FC = () => {
   // Form submit handler to publish the file hosting commitment
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
+  
     // Validate inputs
     if (!fileURL || !hostingTime) {
       alert('Please provide valid inputs for the file URL and hosting time.');
       return;
     }
-
+  
+    // Validate the URL format
+    if (!isValidURL(fileURL)) {
+      alert('Please provide a valid URL.');
+      return;
+    }
+  
+    // Validate hosting time (must be greater than 0)
+    const hostingDays = parseInt(hostingTime);
+    if (hostingDays <= 0) {
+      alert('Hosting time must be greater than 0.');
+      return;
+    }
+  
     try {
       // Convert hosting time to minutes
-      const hostingMinutes = parseInt(hostingTime) * 24 * 60;
-
+      const hostingMinutes = hostingDays * 24 * 60;
+  
       console.log('File URL:', fileURL);
       console.log('Hosting Time (in days):', hostingTime);
       console.log('Hosting Time (in minutes):', hostingMinutes);
       console.log('Address:', address);
-
+  
       // Call the publishCommitment utility function to submit the commitment
       console.log('Calling publishCommitment with data:');
       console.log({ fileURL, hostingMinutes, address });
-
+  
       const result = await publishCommitment({
         url: fileURL,
         hostingMinutes,
         address, // Use derived address
         serviceURL: 'https://staging-overlay.babbage.systems',
       });
-
+  
       console.log('publishCommitment result:', result);
-
+  
       alert('File storage commitment submitted successfully!');
     } catch (error) {
       // Enhanced error logging
@@ -80,6 +103,7 @@ const CommitmentForm: React.FC = () => {
       alert('There was an error submitting the commitment.');
     }
   };
+  
 
   return (
     <Container maxWidth="sm">
